@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Chat</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-image: url('https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiU6B8gq7_LO1Vlvvv1jIjpWtR1Z0fHif91oWGr9H-SQfAf-1ogM2QTsC93v4jPeFOwbADNZrJHXWZGL7zLAxLo5hXhYkc32R4CuTkZYw72ldm9nMtImjh8BE_C2pI8YnF-rg38Kg7nr-27XVK2LNEMmiLHl5nacXoP1w1qHxppAPuIGCVW7SmGaiHUbQ/s1600/synth-sunset-lake-162023.png');
+            background-size: cover;
+            background-position: center;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: black;
+        }
+
+        #chat-box {
+            max-width: 600px;
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        #output {
+            height: 300px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            overflow-y: auto;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            flex-grow: 1;
+            position: relative; /* Pozisyonu göreli hale getir */
+            background: linear-gradient(45deg, #8e44ad, #ff0080, #ffeb3b); /* Mor, pembe, sarı renk geçişi */
+            background-size: 400% 400%; /* Arka plan boyutu */
+            animation: gradient 15s ease infinite; /* Animasyon */
+        }
+
+        @keyframes gradient {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .message {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 10px;
+            position: relative;
+        }
+
+        .message.text {
+            background-color: #dcf8c6;
+        }
+
+        .message.image {
+            background-color: #fff3cd;
+        }
+
+        .message.video {
+            background-color: #d1ecf1;
+        }
+
+        .message img,
+        .message video {
+            max-width: 100%;
+            border-radius: 8px;
+        }
+
+        input,
+        button {
+            padding: 10px;
+            margin-top: 10px;
+            width: calc(100% - 22px);
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            cursor: pointer;
+            border: none;
+            margin-top: 5px;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        #usernameContainer {
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 600px) {
+            #chat-box {
+                padding: 10px;
+            }
+
+            input,
+            button {
+                padding: 8px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="chat-box">
+        <h1>WebSocket Chat</h1>
+
+        <div id="usernameContainer">
+            <input type="text" id="usernameInput" placeholder="Enter your username">
+            <button onclick="setUsername()">Set Username</button>
+        </div>
+
+        <div id="output"></div>
+
+        <input type="text" id="messageInput" placeholder="Type a message" disabled>
+        <button onclick="sendMessage()" disabled>Send</button>
+
+        <input type="file" id="imageInput" accept="image/*" onchange="sendImage()" disabled>
+        <input type="file" id="videoInput" accept="video/*" onchange="sendVideo()" disabled>
+    </div>
+
+    <script>
+        let socket;
+        let username;
+
+        function connectWebSocket() {
+            socket = new WebSocket('ws://localhost:8765');
+
+            socket.onopen = function () {
+                console.log('Connected to WebSocket server');
+                loadPreviousMessages(); // Önceki mesajları yükle
+            };
+
+            socket.onmessage = function (event) {
+                const data = JSON.parse(event.data);
+                const output = document.getElementById('output');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${data.type}`;
+
+                if (data.type === 'text') {
+                    messageDiv.innerHTML = `<strong>${data.username}:</strong> ${data.content}`;
+                } else if (data.type === 'image') {
+                    messageDiv.innerHTML = `<strong>${data.username}:</strong> <br><img src="${data.content}" alt="Image">`;
+                } else if (data.type === 'video') {
+                    messageDiv.innerHTML = `<strong>${data.username}:</strong> <br><video controls><source src="${data.content}" type="video/mp4">Your browser does not support the video tag.</video>`;
+                }
+
+                output.appendChild(messageDiv);
+                output.scrollTop = output.scrollHeight; // Otomatik olarak en alta kaydır
+            };
+
+            socket.onclose = function () {
+                console.log('Disconnected from WebSocket server');
+            };
+        }
+
+        function setUsername() {
+            username = document.getElementById('usernameInput').value.trim();
+            if (username) {
+                document.getElementById('usernameContainer').style.display = 'none';
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('imageInput').disabled = false;
+                document.getElementById('videoInput').disabled = false;
+                document.querySelector('button[onclick="sendMessage()"]').disabled = false;
+                connectWebSocket();
+            } else {
+                alert("Username cannot be empty!");
+            }
+        }
+
+        function sendMessage() {
+            const message = document.getElementById('messageInput').value;
+            if (username && message) {
+                socket.send(JSON.stringify({ type: 'text', content: message, username: username }));
+                document.getElementById('messageInput').value = '';
+            } else {
+                alert("Please enter a message and set a username.");
+            }
+        }
+
+        function sendImage() {
+            const file = document.getElementById('imageInput').files[0];
+            const reader = new FileReader();
+
+            reader.onloadend = function () {
+                const base64Image = reader.result;
+                socket.send(JSON.stringify({ type: 'image', content: base64Image, username: username }));
+            };
+
+            if (file) {
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function sendVideo() {
+            const file = document.getElementById('videoInput').files[0];
+            const reader = new FileReader();
+
+            reader.onloadend = function () {
+                const base64Video = reader.result;
+                socket.send(JSON.stringify({ type: 'video', content: base64Video, username: username }));
+            };
+
+            if (file) {
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Önceki mesajları yükleme fonksiyonu
+        function loadPreviousMessages() {
+            fetch('messages.json')
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    throw new Error('Network response was not ok');
+                })
+                .then(data => {
+                    const output = document.getElementById('output');
+                    data.forEach(message => {
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = `message ${message.type}`;
+                        if (message.type === 'text') {
+                            messageDiv.innerHTML = `<strong>${message.username}:</strong> ${message.content}`;
+                        } else if (message.type === 'image') {
+                            messageDiv.innerHTML = `<strong>${message.username}:</strong> <br><img src="${message.content}" alt="Image">`;
+                        } else if (message.type === 'video') {
+                            messageDiv.innerHTML = `<strong>${message.username}:</strong> <br><video controls><source src="${message.content}" type="video/mp4">Your browser does not support the video tag.</video>`;
+                        }
+                        output.appendChild(messageDiv);
+                    });
+                    output.scrollTop = output.scrollHeight; // Otomatik olarak en alta kaydır
+                })
+                .catch(error => {
+                    console.error('Error loading previous messages:', error);
+                });
+        }
+    </script>
+
+</body>
+
+</html>

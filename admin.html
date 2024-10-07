@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - WebSocket Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url('https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiU6B8gq7_LO1Vlvvv1jIjpWtR1Z0fHif91oWGr9H-SQfAf-1ogM2QTsC93v4jPeFOwbADNZrJHXWZGL7zLAxLo5hXhYkc32R4CuTkZYw72ldm9nMtImjh8BE_C2pI8YnF-rg38Kg7nr-27XVK2LNEMmiLHl5nacXoP1w1qHxppAPuIGCVW7SmGaiHUbQ/s1600/synth-sunset-lake-162023.png');
+            background-size: cover;
+            background-position: center;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: black;
+        }
+
+        #admin-box {
+            max-width: 800px;
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.85);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        #message-list {
+            height: 400px;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 10px;
+            background-color: #dcf8c6;
+            position: relative;
+            word-wrap: break-word;
+        }
+
+        .message strong {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .message img {
+            max-width: 100%;
+            border-radius: 8px;
+        }
+
+        .message video {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 600px) {
+            #admin-box {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            .message {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="admin-box">
+        <h1>Admin Panel - WebSocket Chat</h1>
+        <div id="message-list"></div>
+    </div>
+
+    <script>
+        let socket;
+
+        function connectWebSocket() {
+            socket = new WebSocket('ws://localhost:8765');
+
+            socket.onopen = function () {
+                console.log('Connected to WebSocket server');
+            };
+
+            socket.onmessage = function (event) {
+                const data = JSON.parse(event.data);
+                const messageList = document.getElementById('message-list');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message';
+
+                if (data.type === 'text') {
+                    messageDiv.innerHTML = `<strong>${data.username}:</strong> ${data.content}`;
+                } else if (data.type === 'image') {
+                    messageDiv.innerHTML = `<strong>${data.username}:</strong> <br><img src="${data.content}" alt="Image">`;
+                } else if (data.type === 'video') {
+                    messageDiv.innerHTML = `<strong>${data.username}:</strong> <br><video controls><source src="${data.content}" type="video/mp4">Your browser does not support the video tag.</video>`;
+                }
+
+                messageList.appendChild(messageDiv);
+                messageList.scrollTop = messageList.scrollHeight;  // Otomatik olarak en alta kaydır
+            };
+
+            socket.onclose = function () {
+                console.log('Disconnected from WebSocket server');
+            };
+        }
+
+        // Sayfa yüklendiğinde WebSocket'e bağlan
+        window.onload = connectWebSocket;
+    </script>
+
+</body>
+
+</html>
